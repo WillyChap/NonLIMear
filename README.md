@@ -31,13 +31,13 @@ To run at every lead time, modify the bash script [Run_Forecasts](Run_Forecasts.
 
 ## Citation
 
-   @article{TheOptimalGrowthofTropicalSeaSurfaceTemperatureAnomalies,
+   @article{PenlandSardeshmukh1995,
       author={Cécile  Penland and Prashant D.  Sardeshmukh},
       title={The Optimal Growth of Tropical Sea Surface Temperature Anomalies},
       journal={Journal of Climate},
       year={1995},
       publisher={American Meteorological Society},
-      address={Boston MA, USA},
+      address={Boston MA USA},
       volume={8},
       number={8},
       doi={10.1175/1520-0442(1995)008<1999:TOGOTS>2.0.CO;2},
