@@ -1,0 +1,4 @@
+# ignore all logs
+*.nc
+*.pth
+out_*.txt
