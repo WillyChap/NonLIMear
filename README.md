@@ -1,6 +1,6 @@
 # NonLIMear - NonLinear Spatial/Temporal Encoder and Deep Learning Model for Nino3.4 Forecasting
 
---  A Tool Box for ENSO forecasting Using Non-Linear Linear Inverse Models---
+--  A Tool Box for ENSO forecasting Using Non-Linear Linear Inverse Models ---
 
 
 The fundamental framework is built from the excellent [Penland & Sardeshmukh (1995) -- Optimal Growth of Tropical Sea Surface Temperature Anomalies](https://journals.ametsoc.org/view/journals/clim/8/8/1520-0442_1995_008_1999_togots_2_0_co_2.xml) (citation below.) we then modify this to make the framework a non-linear deeplearning model that is iteratively trained. 
