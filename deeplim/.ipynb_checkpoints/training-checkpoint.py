@@ -142,6 +142,9 @@ def evaluate_LIM(dataloader, model, device, return_preds=False):
 #         X = X.reshape((X.shape[0], -1, X.shape[3])).transpose(1, 2)
         with torch.no_grad():
             output = model(X)
+        if output.shape[1]>1:
+            output = output[:,0]
+            output = output.unsqueeze(dim=1)
         if preds is None:
             preds = output
             Ytrue = Y

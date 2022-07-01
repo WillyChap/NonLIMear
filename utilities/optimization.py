@@ -47,7 +47,7 @@ def get_trainable_params(model):
     return trainable_params
 
 
-def crps_cost_function(y_true,ypred):
+def crps_cost_function(y_pred,y_true):
     """
     compute the CRPS cost function of a normal distribution defined by the
     mean and std. 
@@ -60,12 +60,12 @@ def crps_cost_function(y_true,ypred):
         mean_crps: Scalar with mean CRPS over the batch
     """
     mu = y_pred[:,0]
-    signa = y_pred[:,1]
+    sigma = y_pred[:,1]
     var=torch.abs(sigma)
     #the following three variabsles are for convenience 
     loc =(y_true-mu)/var
     phi =1.0/torch.sqrt(2.0*3.141592653589793)*torch.exp(-torch.square(loc)/2.0)
     Phi = 0.5*(1.0+torch.erf(loc/1.4142135623730951)) #loc/sqrt(2.0)
     #crps for the target pair. 
-    cprs = torch.sqrt(var)*(loc*(2.0*Phi-1.) + 2.0 * phi - 1.0 / 1.7724538509055159)
+    crps = torch.sqrt(var)*(loc*(2.0*Phi-1.) + 2.0 * phi - 1.0 / 1.7724538509055159)
     return torch.mean(crps)
