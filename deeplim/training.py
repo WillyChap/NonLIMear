@@ -87,15 +87,23 @@ def train_epoch_LIM(dataloader, model, criterion, optims, device, epoch, nth_ste
         for optim in optims:
             optim.zero_grad()
 #         X = X.reshape((X.shape[0], -1, X.shape[3])).transpose(1, 2)  # shape = (batch_size x #features x #nodes)
-        preds = model(X)
-        loss = criterion(preds, Y)
-        loss.backward()
+
+        if model.loss in ['gauss','laplace','cauchy','crps']:
+            preds,var = model(X)
+            loss = criterion(preds,Y,var,reduction='mean')
+            loss.backward()
+        else: 
+            preds = model(X)
+            loss = criterion(preds, Y)
+            loss.backward()
 
         for optim in optims:
             optim.step()
         total_loss += loss.item()
     num_edges = torch.count_nonzero(model.adj.detach()).item()
     return total_loss / iter, num_edges
+
+
 
 
 def evaluate(dataloader, model, device, return_preds=False):
@@ -142,15 +150,17 @@ def evaluate_LIM(dataloader, model, device, return_preds=False):
 #         X = X.reshape((X.shape[0], -1, X.shape[3])).transpose(1, 2)
         with torch.no_grad():
             output = model(X)
-        if output.shape[1]>1:
-            output = output[:,0]
-            output = output.unsqueeze(dim=1)
+        
+        if type(output) is tuple:
+            output = output[0]
+            
         if preds is None:
             preds = output
             Ytrue = Y
         else:
             preds = torch.cat((preds, output))
             Ytrue = torch.cat((Ytrue, Y))
+            
         total_loss_l2 += F.mse_loss(output, Y).item()
         total_loss_l1 += F.l1_loss(output, Y).item()
 
@@ -162,7 +172,49 @@ def evaluate_LIM(dataloader, model, device, return_preds=False):
         return total_loss_l2 / i, oni_stats, Ytest, preds
     else:
         return total_loss_l2 / i, oni_stats
+    
+    
+def evaluate_LIM_prob(dataloader, model, device, return_preds=False):
+    model.eval()
+    total_loss_l2 = 0
+    total_loss_l1 = 0
+    preds = None
+    Ytrue = None
+    for i, (X, Y) in enumerate(dataloader, 1):
+        assert len(X.size()) == 4, "Expected X to have shape (batch_size, #channels, window, #nodes)"
+        X, Y = X.to(device), Y.to(device)
+        Y=Y.unsqueeze(dim=1)
+#         X = X.reshape((X.shape[0], -1, X.shape[3])).transpose(1, 2)
+        with torch.no_grad():
+            outputer = model(X)
+        
+        if type(outputer) is tuple:
+            output = outputer[0]
+            scale = outputer[1]
+            
+        if preds is None:
+            preds = output
+            scales = scale
+            Ytrue = Y
+        else:
+            preds = torch.cat((preds, output))
+            scales = torch.cat((scales, scale))
+            Ytrue = torch.cat((Ytrue, Y))
+            
+        total_loss_l2 += F.mse_loss(output, Y).item()
+        total_loss_l1 += F.l1_loss(output, Y).item()
 
+    preds = preds.data.cpu().numpy().squeeze()
+    scales = scales.data.cpu().numpy().squeeze()
+    Ytest = Ytrue.data.cpu().numpy().squeeze()
+    
+    oni_stats = evaluate_preds(Ytest, preds, return_dict=True)
+    oni_stats['mae'] = total_loss_l1
+    if return_preds:
+        return total_loss_l2 / i, oni_stats, Ytest, preds, scales
+    else:
+        return total_loss_l2 / i, oni_stats
+    
 
 def evaluate_preds(Ytrue, preds, **kwargs):
 #     print('true shape:',Ytrue.shape)

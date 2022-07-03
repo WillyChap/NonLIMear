@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
     base_dir = f'{args.out}/{args.horizon}lead/'
     adj = None
-    config_files = ['config_bias_small']
+    config_files = ['config_bias_crps','config_bias_small']
     ID = str(time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y'))
 
     for i, config_file in enumerate(config_files):
@@ -108,14 +108,14 @@ if __name__ == '__main__':
         print('shape static feats', static_feats.shape)
         #
         # # model and optmizer
-        if params['probabilistic']:
-            params['loss']='CRPS'
-            outsize=2
+        if params['loss'] in ['gauss','laplace','cauchy','crps']:
+            'You are running a probabilistic model, the output will be 2 nodes (mean,scale)'
+            outsize=1
         else:
+            'You are running a probabilistic model, the output will be 1 nodes (mean,scale)'
             outsize=1
 
         model = nlim(net_params, params,static_feat=static_feats, adj=adj,outsize=outsize,device=device)
-        print('bingbingbop')
         optimizer = get_optimizer(params['optimizer'], model, lr=params['lr'],weight_decay=params['weight_decay'], nesterov=params['nesterov'])
         criterion = get_loss(params['loss'])
 
@@ -163,4 +163,5 @@ if __name__ == '__main__':
             os.makedirs(out_mod_dir)
             print("The new directory is created!")
         mod_name =out_mod_dir+'/LIM'+'_numeofs_' + f'{net_params["num_eofs"]:03}'+'_seed_' + f'{params["seed"]:03}' +'_optimizer_'+params["optimizer"]+'_loss_'+params["loss"]+'_epochs_'+f'{params["epochs"]:03}'+'.pth'
+        print('this is your model:',best_model_lim)
         save_model(epoch_best,best_model_lim,optimizer,criterion,mod_name,str(args))

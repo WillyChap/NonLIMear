@@ -17,7 +17,7 @@
          "sig_alpha": 2.0,
          "dropout": 0.0,
          "hidden_dim": 250,
-         "out_dim": 100,
+         "out_dim": 1,
          "num_eofs": 100,
          "LIM_Bias":false
    },

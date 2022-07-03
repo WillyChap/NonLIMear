@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
+import math
 
 def get_optimizer(name, model, **kwargs):
     name = name.lower().strip()
@@ -31,11 +31,21 @@ def get_loss(name, reduction='mean'):
     if name in ['l1', 'mae']:
         loss = nn.L1Loss(reduction=reduction)
     elif name in ['l2', 'mse']:
-        loss = nn.MSELoss(reduction=reduction)
-    elif name in ['bingbop','crps']:
-        loss = nn.MSELoss(reduction=reduction)
+        loss = nn.MSELoss(reduction=reduction)  
+    elif name in ['gauss']:
+        print('getttt probable babbby')
+        loss = nn.GaussianNLLLoss()
+    elif name in ['laplace']:
+        print('getttt probable babbby')
+        loss = Custom_Laplace()
+    elif name in ['cauchy']:
+        print('getttt probable babbby')
+        loss = Custom_Cauchy()
+    elif name in ['crps']:
+        print('getttt probable babbby')
+        loss = Custom_CRPS()
     else:
-        raise ValueError()  # default
+        raise ValueError('Available Losses: MAE, L1, L2, MSE, Gauss, Laplace, Cauchy, CRPS ... ')  # default
     return loss
 
 
@@ -47,25 +57,324 @@ def get_trainable_params(model):
     return trainable_params
 
 
-def crps_cost_function(y_pred,y_true):
+class Custom_CRPS(nn.Module):
     """
     compute the CRPS cost function of a normal distribution defined by the
     mean and std. 
     
     Args: 
-        y_true: true values
-        y_pred: tensor containing preds [mean,std]
+        input: mean value
+        target: observed value
+        scale: standard deviation (estimated)
     
     Returns: 
-        mean_crps: Scalar with mean CRPS over the batch
+        Gaussian CRPS: Scalar with CRPS over the batch
+    
     """
-    mu = y_pred[:,0]
-    sigma = y_pred[:,1]
-    var=torch.abs(sigma)
-    #the following three variabsles are for convenience 
-    loc =(y_true-mu)/var
-    phi =1.0/torch.sqrt(2.0*3.141592653589793)*torch.exp(-torch.square(loc)/2.0)
-    Phi = 0.5*(1.0+torch.erf(loc/1.4142135623730951)) #loc/sqrt(2.0)
-    #crps for the target pair. 
-    crps = torch.sqrt(var)*(loc*(2.0*Phi-1.) + 2.0 * phi - 1.0 / 1.7724538509055159)
-    return torch.mean(crps)
+    def __init__(self):
+        super(Custom_CRPS,self).__init__();
+        
+    def forward(self,input, target, scale, eps=1e-06, reduction='mean'):
+        # Inputs and targets much have same shape
+        input = input.view(input.size(0), -1)
+        target = target.view(target.size(0), -1)
+        if input.size() != target.size():
+              raise ValueError("input and target must have same size")
+
+        # Second dim of scale must match that of input or be equal to 1
+        scale = scale.view(input.size(0), -1)
+        if scale.size(1) != input.size(1) and scale.size(1) != 1:
+            raise ValueError("scale is of incorrect size")
+
+        # Check validity of reduction mode
+        if reduction != 'none' and reduction != 'mean' and reduction != 'sum':
+            raise ValueError(reduction + " is not valid")
+
+        # Entries of var must be non-negative
+        if torch.any(scale < 0):
+            raise ValueError("scale has negative entry/entries")
+
+        # Clamp for stability
+        scale = scale.clone()
+        with torch.no_grad():
+            scale.clamp_(min=eps)
+
+        # Calculate loss (without constant)
+        loc =(target-input)/scale
+        pie = torch.as_tensor(math.pi) #yummmm
+        phi =1.0 / torch.sqrt((2.0*pie))*torch.exp(-torch.square(loc)/2.0)
+        Phi = 0.5*(1.0+torch.erf((loc/torch.sqrt(torch.as_tensor(2.0)))))
+        loss = scale * (loc * (2.0 * Phi - 1.) + 2.0 * phi - 1.0 / torch.sqrt(pie))
+
+        # Apply reduction
+        if reduction == 'mean':
+            return loss.mean()
+        elif reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss
+    
+def CRPSloss(input, target, scale, eps=1e-06, reduction='mean'):
+    """
+    compute the CRPS cost function of a normal distribution defined by the
+    mean and std. 
+    
+    Args: 
+        input: mean value
+        target: observed value
+        scale: standard deviation (estimated)
+    
+    Returns: 
+        Gaussian CRPS: Scalar with CRPS over the batch
+    
+    """
+    # Inputs and targets much have same shape
+    input = input.view(input.size(0), -1)
+    target = target.view(target.size(0), -1)
+    if input.size() != target.size():
+          raise ValueError("input and target must have same size")
+
+    # Second dim of scale must match that of input or be equal to 1
+    scale = scale.view(input.size(0), -1)
+    if scale.size(1) != input.size(1) and scale.size(1) != 1:
+        raise ValueError("scale is of incorrect size")
+
+    # Check validity of reduction mode
+    if reduction != 'none' and reduction != 'mean' and reduction != 'sum':
+        raise ValueError(reduction + " is not valid")
+
+    # Entries of var must be non-negative
+    if torch.any(scale < 0):
+        raise ValueError("scale has negative entry/entries")
+
+    # Clamp for stability
+    scale = scale.clone()
+    with torch.no_grad():
+        scale.clamp_(min=eps)
+
+    # Calculate loss (without constant)
+    loc =(target-input)/scale
+    pie = torch.as_tensor(math.pi) #yummmm
+    phi =1.0 / torch.sqrt((2.0*pie))*torch.exp(-torch.square(loc)/2.0)
+    Phi = 0.5*(1.0+torch.erf((loc/torch.sqrt(torch.as_tensor(2.0)))))
+    loss = scale * (loc * (2.0 * Phi - 1.) + 2.0 * phi - 1.0 / torch.sqrt(pie))
+
+    # Apply reduction
+    if reduction == 'mean':
+        return loss.mean()
+    elif reduction == 'sum':
+        return loss.sum()
+    else:
+        return loss
+    
+
+class Custom_Laplace(nn.Module):
+    """
+    compute the Negative Log Liklihood cost function of a laplace distribution defined by the
+    mean and std. 
+    
+    Args: 
+        input: mean value
+        target: observed value
+        scale: standard deviation (estimated)
+    
+    Returns: 
+        laplace NLL loss
+    
+    """
+    def __init__(self):
+        super(Custom_Laplace,self).__init__();
+        
+    def forward(self,input, target, scale, eps=1e-06, reduction='mean'):
+        loss = torch.log(2*scale) + torch.abs(input - target)/scale
+
+        # Inputs and targets much have same shape
+        input = input.view(input.size(0), -1)
+        target = target.view(target.size(0), -1)
+        if input.size() != target.size():
+              raise ValueError("input and target must have same size")
+
+        # Second dim of scale must match that of input or be equal to 1
+        scale = scale.view(input.size(0), -1)
+        if scale.size(1) != input.size(1) and scale.size(1) != 1:
+            raise ValueError("scale is of incorrect size")
+
+        # Check validity of reduction mode
+        if reduction != 'none' and reduction != 'mean' and reduction != 'sum':
+            raise ValueError(reduction + " is not valid")
+
+        # Entries of var must be non-negative
+        if torch.any(scale < 0):
+            raise ValueError("scale has negative entry/entries")
+
+        # Clamp for stability
+        scale = scale.clone()
+        with torch.no_grad():
+            scale.clamp_(min=eps)
+
+        # Calculate loss (without constant)
+        loss = (torch.log(2*scale) + torch.abs(input - target) / scale).view(input.size(0), -1).sum(dim=1)
+
+        # Apply reduction
+        if reduction == 'mean':
+            return loss.mean()
+        elif reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss
+        
+    
+def LaplaceNLLLoss(input, target, scale, eps=1e-06, reduction='mean'):
+    """
+    compute the Negative Log Liklihood cost function of a laplace distribution defined by the
+    mean and std. 
+    
+    Args: 
+        input: mean value
+        target: observed value
+        scale: standard deviation (estimated)
+    
+    Returns: 
+        laplace NLL loss
+    
+    """
+    loss = torch.log(2*scale) + torch.abs(input - target)/scale
+
+    # Inputs and targets much have same shape
+    input = input.view(input.size(0), -1)
+    target = target.view(target.size(0), -1)
+    if input.size() != target.size():
+          raise ValueError("input and target must have same size")
+
+    # Second dim of scale must match that of input or be equal to 1
+    scale = scale.view(input.size(0), -1)
+    if scale.size(1) != input.size(1) and scale.size(1) != 1:
+        raise ValueError("scale is of incorrect size")
+
+    # Check validity of reduction mode
+    if reduction != 'none' and reduction != 'mean' and reduction != 'sum':
+        raise ValueError(reduction + " is not valid")
+
+    # Entries of var must be non-negative
+    if torch.any(scale < 0):
+        raise ValueError("scale has negative entry/entries")
+
+    # Clamp for stability
+    scale = scale.clone()
+    with torch.no_grad():
+        scale.clamp_(min=eps)
+
+    # Calculate loss (without constant)
+    loss = (torch.log(2*scale) + torch.abs(input - target) / scale).view(input.size(0), -1).sum(dim=1)
+
+    # Apply reduction
+    if reduction == 'mean':
+        return loss.mean()
+    elif reduction == 'sum':
+        return loss.sum()
+    else:
+        return loss
+    
+    
+class Custom_Cauchy(nn.Module):
+    """
+    compute the Negative Log Liklihood cost function of a Cauchy distribution defined by the
+    mean and std. 
+    
+    Args: 
+        input: mean value
+        target: observed value
+        scale: standard deviation (estimated)
+    
+    Returns: 
+        Cauchy NLL loss
+    """
+    
+    def __init__(self):
+        super(Custom_Cauchy,self).__init__();
+        
+    def forward(self,input, target, scale, eps=1e-06, reduction='mean'):
+        # Inputs and targets much have same shape
+        input = input.view(input.size(0), -1)
+        target = target.view(target.size(0), -1)
+        if input.size() != target.size():
+            raise ValueError("input and target must have same size")
+
+        # Second dim of scale must match that of input or be equal to 1
+        scale = scale.view(input.size(0), -1)
+        if scale.size(1) != input.size(1) and scale.size(1) != 1:
+            raise ValueError("scale is of incorrect size")
+
+        # Check validity of reduction mode
+        if reduction != 'none' and reduction != 'mean' and reduction != 'sum':
+            raise ValueError(reduction + " is not valid")
+
+        # Entries of var must be non-negative
+        if torch.any(scale < 0):
+            raise ValueError("scale has negative entry/entries")
+
+        # Clamp for stability
+        scale = scale.clone()
+        with torch.no_grad():
+            scale.clamp_(min=eps)
+
+        # Calculate loss (without constant)
+        loss = (torch.log(3.14159265*scale) + torch.log(1 + ((input - target)**2)/scale**2)) .view(input.size(0), -1).sum(dim=1)
+
+        # Apply reduction
+        if reduction == 'mean':
+            return loss.mean()
+        elif reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss
+   
+    
+def CauchyNLLLoss(input, target, scale, eps=1e-06, reduction='mean'):
+    """
+    compute the Negative Log Liklihood cost function of a Cauchy distribution defined by the
+    mean and std. 
+    
+    Args: 
+        input: median value
+        target: observed value
+        scale: standard deviation (estimated)
+    
+    Returns: 
+        Cauchy NLL loss
+    """
+    # Inputs and targets much have same shape
+    input = input.view(input.size(0), -1)
+    target = target.view(target.size(0), -1)
+    if input.size() != target.size():
+        raise ValueError("input and target must have same size")
+
+    # Second dim of scale must match that of input or be equal to 1
+    scale = scale.view(input.size(0), -1)
+    if scale.size(1) != input.size(1) and scale.size(1) != 1:
+        raise ValueError("scale is of incorrect size")
+
+    # Check validity of reduction mode
+    if reduction != 'none' and reduction != 'mean' and reduction != 'sum':
+        raise ValueError(reduction + " is not valid")
+
+    # Entries of var must be non-negative
+    if torch.any(scale < 0):
+        raise ValueError("scale has negative entry/entries")
+
+    # Clamp for stability
+    scale = scale.clone()
+    with torch.no_grad():
+        scale.clamp_(min=eps)
+
+    # Calculate loss (without constant)
+    loss = (torch.log(3.14159265*scale) + torch.log(1 + ((input - target)**2)/scale**2)) .view(input.size(0), -1).sum(dim=1)
+
+
+    # Apply reduction
+    if reduction == 'mean':
+        return loss.mean()
+    elif reduction == 'sum':
+        return loss.sum()
+    else:
+        return loss
