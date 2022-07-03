@@ -41,7 +41,7 @@ python run_deeplim.py --horizon 3 --seed 42 --epochs 30 --gpu_id 0 >> out_epochs
 To run at every lead time, modify the bash script [Run_Forecasts](Run_Forecasts.sh):
 
 
-## Citation
+## Citations listed above
 
     @article{PenlandSardeshmukh1995,
           author={Cécile  Penland and Prashant D.  Sardeshmukh},
