@@ -7,7 +7,7 @@ The fundamental framework is built from the excellent [[1] Penland & Sardeshmukh
 
 
 
-In [1] it is argued that from SST observations for the period 1950–90 that the tropical Indo-Pacific ocean-atmosphere system may be described as a stable linear dynamical system driven by spatially coherent Gaussian white noise. Evidence is presented that the predictable component of SST anomaly growth is associated with the constructive interference of several damped normal modes after an optimal initial structure is set up by the white noise forcing. In particular, El Niño–Southern Oscillation (ENSO) growth is associated with an interplay of at least three damped normal modes, with periods longer than two years and decay times of 4 to 8 months, rather than the manifestation of a single unstable mode whose growth is arrested by nonlinearities. In the modern era deep-learning models have been used in order to forecast NINO3.4 to some success notable [2]. [3] uses graph neural networks and argues that current deep learning models are based on convolutional neural networks which are difficult to interpret and can fail to model large-scale atmospheric patterns. In comparison, graph neural networks (GNNs) are capable of modeling large-scale spatial dependencies and are more interpretable due to the explicit modeling of information flow through edge connections. We show here that the original paper [1] leveraged a handy way to encode spatial/temporal information and we then bolster than skill through the addition of non-linear learned parameters. We show that the new model outperforms both [2] and [3] but retains the direct interpretability of [1]. 
+In [1] it is argued that from SST observations for the period 1950–90 that the tropical Indo-Pacific ocean-atmosphere system may be described as a stable linear dynamical system driven by spatially coherent Gaussian white noise. Evidence is presented that the predictable component of SST anomaly growth is associated with the constructive interference of several damped normal modes after an optimal initial structure is set up by the white noise forcing. In particular, El Niño–Southern Oscillation (ENSO) growth is associated with an interplay of at least three damped normal modes, with periods longer than two years and decay times of 4 to 8 months, rather than the manifestation of a single unstable mode whose growth is arrested by nonlinearities. In the modern era deep-learning models have been used in order to forecast NINO3.4 to some success, notably, [2]. [3] uses graph neural networks and argues that current deep learning models are based on convolutional neural networks which are difficult to interpret and can fail to model large-scale atmospheric patterns. In comparison, graph neural networks (GNNs) are capable of modeling large-scale spatial dependencies and are more interpretable due to the explicit modeling of information flow through edge connections. We show here that the original paper [1] leveraged a handy way to encode spatial/temporal information and we then bolster than skill through the addition of non-linear learned parameters. We show that the new model outperforms both [2] and [3] but retains the direct interpretability of [1]. 
 
 [1] [Penland & Sardeshmukh (1995) -- Optimal Growth of Tropical Sea Surface Temperature Anomalies](https://journals.ametsoc.org/view/journals/clim/8/8/1520-0442_1995_008_1999_togots_2_0_co_2.xml)
 
@@ -53,6 +53,16 @@ To run at every lead time, modify the bash script [Run_Forecasts](Run_Forecasts.
           doi={10.1175/1520-0442(1995)008<1999:TOGOTS>2.0.CO;2},
           pages={1999 - 2024},
           url={https://journals.ametsoc.org/view/journals/clim/8/8/1520-0442_1995_008_1999_togots_2_0_co_2.xml}
+    }
+    
+    @article{Ham2019DeepLearning,
+          author={YG Ham and JH KIM and JJ Luo},
+          title={Deep learning for multi-year ENSO forecasts},
+          journal={Nature},
+          year={2019},
+          doi={10.1038/s41586-019-1559-7},
+          pages={1476-4687},
+          url={https://doi.org/10.1038/s41586-019-1559-7}
     }
 
     @article{cachay2021world,
