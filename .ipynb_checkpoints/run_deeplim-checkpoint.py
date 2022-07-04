@@ -28,7 +28,7 @@ from deeplim.GCN.GCN_model import GCN
 from deeplim.DLIM.deeplim_model import nlim
 from utilities.utils import set_gpu, set_seed
 from utilities.model_logging import update_tqdm, save_model
-from utilities.optimization import get_optimizer, get_loss
+from utilities.optimization import get_optimizer, get_loss, CRPSloss
 
 print('torch-version: ',torch.__version__)
 
@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
     base_dir = f'{args.out}/{args.horizon}lead/'
     adj = None
-    config_files = ['config_bias_crps','config_bias_small']
+    config_files = ['DLIM_config_bias_expand.json']
     ID = str(time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y'))
 
     for i, config_file in enumerate(config_files):
@@ -101,6 +101,20 @@ if __name__ == '__main__':
             print("The new directory is created!")
 
         print(outbase_dir)
+        
+        if args.horizon in [1,2]:
+            params['lat_min']=-10
+            params['lat_max']=10
+        elif args.horizon in [3,4]:
+            params['lat_min']=-15
+            params['lat_max']=15
+        elif args.horizon in [5,6]:
+            params['lat_min']=-30
+            params['lat_max']=30
+        elif args.horizon in [9,12,23]:
+            params['lat_min']=-55
+            params['lat_max']=60
+        
         # #set up data and G matrix
         (adj, static_feats, _), (trainloader,valloader,testloader) = get_dataloaders(params, net_params)
         static_feats = static_feats[:,2:]
@@ -135,26 +149,49 @@ if __name__ == '__main__':
                 if valloader is not None:
                     # Note that the default 'validation set' is included in the training set (=SODA),
                     # and is not used at all.
+                      
                     _, val_stats = evaluate_LIM(valloader, model, device=device)
                     _, train_stats = evaluate_LIM(trainloader, model, device=device)
+                    
+                    if params['loss'] in ['gauss','laplace','cauchy','crps']:
+                        _, val_stats_away,truer,preder,scales = evaluate_LIM_prob(valloader,model, device=device,return_preds=True)
+                        val_stats['crps'] = CRPSloss(preder, truer, scales, eps=1e-06, reduction='mean')
+                    
                     print('validation: ',val_stats)
                     print('train: ',train_stats)
 
                 update_tqdm(t, loss, n_edges=num_edges, time=duration, val_stats=val_stats)
-                #save the best model....
-                if epoch == 1:
-                    epoch_best=1
-                    best_accuracy = val_stats['corrcoef']
-                    best_model_lim = copy.deepcopy(model)
-                else:
-                    print(epoch)
-                    if best_accuracy > val_stats['corrcoef']:
-                        continue
+                if params['loss'] in ['gauss','laplace','cauchy','crps']:
+                    #save the best model....
+                    if epoch == 1:
+                        epoch_best=1
+                        best_accuracy = val_stats['crps']
+                        best_model_lim = copy.deepcopy(model)
                     else:
-                        print('new best')
-                        epoch_best = epoch
+                        print(epoch)
+                        if best_accuracy < val_stats['crps']:
+                            continue
+                        else:
+                            print('new best')
+                            epoch_best = epoch
+                            best_accuracy = val_stats['crps']
+                            best_model_lim = copy.deepcopy(model)
+                    
+                else:
+                    #save the best model....
+                    if epoch == 1:
+                        epoch_best=1
                         best_accuracy = val_stats['corrcoef']
                         best_model_lim = copy.deepcopy(model)
+                    else:
+                        print(epoch)
+                        if best_accuracy > val_stats['corrcoef']:
+                            continue
+                        else:
+                            print('new best')
+                            epoch_best = epoch
+                            best_accuracy = val_stats['corrcoef']
+                            best_model_lim = copy.deepcopy(model)
 
         ##create out directory if it doesn't exist
         out_mod_dir = outbase_dir+'/'+config_file+'/'
