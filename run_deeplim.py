@@ -23,7 +23,7 @@ from tqdm import tqdm
 # from eval_gcn import ensemble_performance
 # !!!
 
-from deeplim.training import evaluate, train_epoch, train_epoch_LIM, get_dataloaders, evaluate_LIM
+from deeplim.training import evaluate, train_epoch, train_epoch_LIM, get_dataloaders, evaluate_LIM, evaluate_LIM_prob
 from deeplim.GCN.GCN_model import GCN
 from deeplim.DLIM.deeplim_model import nlim
 from utilities.utils import set_gpu, set_seed
@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
     base_dir = f'{args.out}/{args.horizon}lead/'
     adj = None
-    config_files = ['DLIM_config_bias_expand.json']
+    config_files = ['config_bias_expand','config_bias_crps']
     ID = str(time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y'))
 
     for i, config_file in enumerate(config_files):
@@ -153,19 +153,24 @@ if __name__ == '__main__':
                     _, val_stats = evaluate_LIM(valloader, model, device=device)
                     _, train_stats = evaluate_LIM(trainloader, model, device=device)
                     
-                    if params['loss'] in ['gauss','laplace','cauchy','crps']:
-                        _, val_stats_away,truer,preder,scales = evaluate_LIM_prob(valloader,model, device=device,return_preds=True)
+                    if params['loss'].lower().strip() in ['gauss','laplace','cauchy','crps']:
+                        _, val_stats_away,truer,preder,scales = evaluate_LIM_prob(valloader,model,device=device,return_preds=True)
+                        preder = torch.from_numpy(preder)
+                        truer = torch.from_numpy(truer)
+                        scales = torch.from_numpy(scales)
+                        print('CRPS LOSS: ',CRPSloss(preder, truer, scales, eps=1e-06, reduction='mean'))
                         val_stats['crps'] = CRPSloss(preder, truer, scales, eps=1e-06, reduction='mean')
                     
                     print('validation: ',val_stats)
                     print('train: ',train_stats)
 
                 update_tqdm(t, loss, n_edges=num_edges, time=duration, val_stats=val_stats)
-                if params['loss'] in ['gauss','laplace','cauchy','crps']:
+                if params['loss'].lower().strip() in ['gauss','laplace','cauchy','crps']:
                     #save the best model....
                     if epoch == 1:
                         epoch_best=1
                         best_accuracy = val_stats['crps']
+                        print('best crps:',val_stats['crps'])
                         best_model_lim = copy.deepcopy(model)
                     else:
                         print(epoch)
@@ -173,6 +178,7 @@ if __name__ == '__main__':
                             continue
                         else:
                             print('new best')
+                            print('best crps:',val_stats['crps'])
                             epoch_best = epoch
                             best_accuracy = val_stats['crps']
                             best_model_lim = copy.deepcopy(model)

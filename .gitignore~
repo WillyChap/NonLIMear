@@ -1,4 +1,0 @@
-# ignore all logs
-*.nc
-*.pth
-out*.txt
