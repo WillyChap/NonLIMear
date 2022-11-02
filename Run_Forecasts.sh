@@ -4,8 +4,8 @@
 source /glade/work/wchapman/miniconda3/etc/profile.d/conda.sh
 conda activate gputorch
 
-arrayhor=(1 2 3 4 5 6 9 12 23)
-arrayseed=(1 2 3 6)
+arrayhor=(1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23)
+arrayseed=(10 11 12 13 14 15 16 17)
 
 for i in "${arrayhor[@]}"
 do

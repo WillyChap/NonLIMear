@@ -129,10 +129,10 @@ class nlim(nn.Module):
         
         if self.loss in ['gauss','laplace','cauchy','crps']:
             self.MLP_layer = LIM_MLP_GaussLL(static_feat.shape[0], outsize, act_func=self.act, batch_norm=net_params['mlp_batch_norm'],
-                                    dropout=dropout, device=device,L=4)
+                                    dropout=dropout, device=device,L=net_params['L'])
         else:
             self.MLP_layer = LIM_MLP(static_feat.shape[0], outsize, act_func=self.act, batch_norm=net_params['mlp_batch_norm'],
-                                    dropout=dropout, device=device,L=4)
+                                    dropout=dropout, device=device,L=net_params['L'])
         if adj is None:
             self.adj, self.learn_adj = None, True
             max_num_edges = int(net_params['avg_edges_per_node'] * num_nodes)

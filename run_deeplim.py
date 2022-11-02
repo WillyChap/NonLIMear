@@ -15,7 +15,9 @@ import sys
 
 from torch.utils.tensorboard import SummaryWriter
 #from torch.cuda import is_available,device_count,current_device,device,get_device_name
+
 import torch
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from tqdm import tqdm
 
 # Training settings
@@ -47,6 +49,9 @@ if __name__ == '__main__':
     parser.add_argument("--grid_edges", default='false', type=str)
     parser.add_argument("--seed", default=42, type=int,help='provide a seed to train with')
     parser.add_argument("--numeof", type=int, help='number of eofs')
+    parser.add_argument("--dropout", type=float, help='fraction dropout')
+    parser.add_argument("--L", type=int, help='number of hidden layers')
+    parser.add_argument("--hidden", type=int, help='hidden dimension')
     args = parser.parse_args()
 
     print(str(args))
@@ -74,7 +79,7 @@ if __name__ == '__main__':
 
     base_dir = f'{args.out}/{args.horizon}lead/'
     adj = None
-    config_files = ['config_bias_expand','config_bias_crps']
+    config_files = ['config_bias_crps','config_bias_crps_narrow']
     ID = str(time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y'))
 
     for i, config_file in enumerate(config_files):
@@ -91,6 +96,9 @@ if __name__ == '__main__':
         params['grid_edges'] = True if args.grid_edges.lower() == 'true' else False
         params['seed'] = args.seed
         net_params['num_eofs'] = args.numeof or net_params['num_eofs']
+        net_params['dropout'] = args.dropout or net_params['dropout']
+        net_params['L'] = args.L or net_params['L']
+        net_params['hidden_dim'] = args.hidden or net_params['hidden_dim']
         set_seed(params['seed'])
 
         ##create out directory if it doesn't exist
@@ -111,7 +119,7 @@ if __name__ == '__main__':
         elif args.horizon in [5,6]:
             params['lat_min']=-30
             params['lat_max']=30
-        elif args.horizon in [9,12,23]:
+        elif args.horizon in [7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]:
             params['lat_min']=-55
             params['lat_max']=60
         
@@ -131,6 +139,7 @@ if __name__ == '__main__':
 
         model = nlim(net_params, params,static_feat=static_feats, adj=adj,outsize=outsize,device=device)
         optimizer = get_optimizer(params['optimizer'], model, lr=params['lr'],weight_decay=params['weight_decay'], nesterov=params['nesterov'])
+        scheduler = ReduceLROnPlateau(optimizer, 'min',patience=3,factor=0.3,verbose=True)
         criterion = get_loss(params['loss'])
 
         # Train model# Train model# Train model# Train model# Train model# Train model
@@ -175,28 +184,52 @@ if __name__ == '__main__':
                     else:
                         print(epoch)
                         if best_accuracy < val_stats['crps']:
+                            scheduler.step(val_stats['crps'])
                             continue
+                            
                         else:
                             print('new best')
                             print('best crps:',val_stats['crps'])
+                            scheduler.step(val_stats['crps'])
                             epoch_best = epoch
                             best_accuracy = val_stats['crps']
                             best_model_lim = copy.deepcopy(model)
                     
-                else:
+                elif params['loss'].lower().strip() in ['mse','mae']:
                     #save the best model....
                     if epoch == 1:
                         epoch_best=1
-                        best_accuracy = val_stats['corrcoef']
+                        best_accuracy = val_stats['rmse']
                         best_model_lim = copy.deepcopy(model)
                     else:
                         print(epoch)
-                        if best_accuracy > val_stats['corrcoef']:
+                        if best_accuracy < val_stats['rmse']:
+                            scheduler.step(val_stats['rmse'])
                             continue
                         else:
                             print('new best')
                             epoch_best = epoch
-                            best_accuracy = val_stats['corrcoef']
+                            best_accuracy = val_stats['rmse']
+                            scheduler.step(val_stats['rmse'])
+                            best_model_lim = copy.deepcopy(model)
+                            
+                            
+                elif params['loss'].lower().strip() in ['linex']:
+                    #save the best model....
+                    if epoch == 1:
+                        epoch_best=1
+                        best_accuracy = val_stats['linex']
+                        best_model_lim = copy.deepcopy(model)
+                    else:
+                        print(epoch)
+                        if best_accuracy < val_stats['linex']:
+                            scheduler.step(val_stats['linex'])
+                            continue
+                        else:
+                            print('new best')
+                            epoch_best = epoch
+                            best_accuracy = val_stats['linex']
+                            scheduler.step(val_stats['linex'])
                             best_model_lim = copy.deepcopy(model)
 
         ##create out directory if it doesn't exist

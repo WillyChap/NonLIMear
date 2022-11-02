@@ -229,8 +229,17 @@ def evaluate_preds(Ytrue, preds, **kwargs):
     except ValueError as e:
         print(e)
         rmse_val = -1
+        
+    try:
+        errz = (np.abs(Ytrue)-np.abs(preds))
+        azz=2
+        linex_val = np.mean((2/np.square(azz)) * (np.exp(azz*errz) - azz*(errz)-1))
+    except ValueError as e:
+        print(e)
+        linex_val = 9999
+
     # r, p = pearsonr(Ytrue, preds)   # same as using np.corrcoef(y, yhat)[0, 1]
-    oni_stats = {"corrcoef": oni_corr, "rmse": rmse_val}  # , "Pearson_r": r, "Pearson_p": p}
+    oni_stats = {"corrcoef": oni_corr, "rmse": rmse_val, "linex":linex_val}  # , "Pearson_r": r, "Pearson_p": p}
 
     try:
         # All season correlation skill = Mean of the corrcoefs for each target season

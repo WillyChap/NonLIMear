@@ -1,6 +1,6 @@
 {
    "net_params": {
-         "L": 2,
+         "L": 4,
          "num_nodes": 189,
          "readout": "mean",
          "activation": "ELU",
