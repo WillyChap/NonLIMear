@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import math
+from evml.regression_losses import EvidentialMarginalLikelihood, EvidenceRegularizer, modified_mse as mmse_loss 
 
 def get_optimizer(name, model, **kwargs):
     name = name.lower().strip()
@@ -46,6 +47,8 @@ def get_loss(name, reduction='mean'):
     elif name in ['crps']:
         print('getttt probable babbby')
         loss = Custom_CRPS()
+    elif name in ["evloss"]:
+        loss = EvidentialLoss()
     else:
         raise ValueError('Available Losses: MAE, L1, L2, MSE, Gauss, Laplace, Cauchy, CRPS ... ')  # default
     return loss
@@ -58,7 +61,20 @@ def get_trainable_params(model):
             trainable_params.append(param)
     return trainable_params
 
-
+class EvidentialLoss(nn.Module):
+    def __init__(self):
+        super(EvidentialLoss, self).__init__()
+        self.nll_loss = EvidentialMarginalLikelihood() ## original loss, NLL loss
+        self.reg = EvidenceRegularizer() ## evidential regularizer
+        self.mmse_loss = mmse_loss ## lipschitz MSE loss
+        
+    def forward(self, input, target, scale=None, eps=1e-06, reduction='mean'):
+        gamma, nu, alpha, beta = input
+        loss = self.nll_loss(gamma, nu, alpha, beta, target)
+        loss += self.reg(gamma, nu, alpha, beta, target)
+        loss += self.mmse_loss(gamma, nu, alpha, beta, target)
+        return loss
+    
 class Custom_CRPS(nn.Module):
     """
     compute the CRPS cost function of a normal distribution defined by the

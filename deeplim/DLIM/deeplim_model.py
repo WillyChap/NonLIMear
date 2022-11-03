@@ -7,6 +7,26 @@ from deeplim.structure_learner import EdgeStructureLearner,LIMG_PC,LIMG
 from utilities.utils import get_activation_function
 import random
 import numpy as np
+#from evml.model import LinearNormalGamma
+
+
+class LinearNormalGamma(nn.Module):
+    def __init__(self, in_chanels, out_channels):
+        super().__init__()
+        self.linear = nn.Linear(in_chanels, out_channels*4)
+
+    def evidence(self, x):
+        #print(x)
+        #print(torch.nn.Softplus(x))
+        return torch.nn.functional.softplus(x)
+        #return  torch.log(torch.exp(x) + 1)
+
+    def forward(self, x):
+        pred = self.linear(x).view(x.shape[0], -1, 4)
+        mu, logv, logalpha, logbeta = [w.squeeze(-1) for w in torch.split(pred, 1, dim=-1)]
+        return mu, self.evidence(logv), self.evidence(logalpha) + 1, self.evidence(logbeta)
+    
+
 
 class nlim_old(nn.Module):
     def __init__(self, net_params,params, static_feat=None, adj=None, device="cuda", outsize=1, verbose=True):
@@ -130,6 +150,8 @@ class nlim(nn.Module):
         if self.loss in ['gauss','laplace','cauchy','crps']:
             self.MLP_layer = LIM_MLP_GaussLL(static_feat.shape[0], outsize, act_func=self.act, batch_norm=net_params['mlp_batch_norm'],
                                     dropout=dropout, device=device,L=net_params['L'])
+        elif self.loss in ['evloss']:
+            self.MLP_layer = LinearNormalGamma(static_feat.shape[0], 1)
         else:
             self.MLP_layer = LIM_MLP(static_feat.shape[0], outsize, act_func=self.act, batch_norm=net_params['mlp_batch_norm'],
                                     dropout=dropout, device=device,L=net_params['L'])
