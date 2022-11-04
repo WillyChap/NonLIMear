@@ -7,17 +7,14 @@ from deeplim.structure_learner import EdgeStructureLearner,LIMG_PC,LIMG
 from utilities.utils import get_activation_function
 import random
 import numpy as np
-#from evml.model import LinearNormalGamma
 
 
 class LinearNormalGamma(nn.Module):
     def __init__(self, in_chanels, out_channels):
         super().__init__()
-        self.linear = nn.Linear(in_chanels, out_channels*4)
+        self.linear = nn.utils.spectral_norm(nn.Linear(in_chanels, out_channels*4))
 
     def evidence(self, x):
-        #print(x)
-        #print(torch.nn.Softplus(x))
         return torch.nn.functional.softplus(x)
         #return  torch.log(torch.exp(x) + 1)
 
