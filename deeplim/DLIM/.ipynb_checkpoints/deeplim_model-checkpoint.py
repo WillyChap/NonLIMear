@@ -148,7 +148,10 @@ class nlim(nn.Module):
             self.MLP_layer = LIM_MLP_GaussLL(static_feat.shape[0], outsize, act_func=self.act, batch_norm=net_params['mlp_batch_norm'],
                                     dropout=dropout, device=device,L=net_params['L'])
         elif self.loss in ['evloss']:
-            self.MLP_layer = LinearNormalGamma(static_feat.shape[0], 1)
+            
+            self.pre_MLP_layer = LIM_MLP(static_feat.shape[0], 100, act_func=self.act, batch_norm=net_params['mlp_batch_norm'],
+                                    dropout=dropout, device=device,L=net_params['L'])
+            self.MLP_layer = LinearNormalGamma(100, 1)
         else:
             self.MLP_layer = LIM_MLP(static_feat.shape[0], outsize, act_func=self.act, batch_norm=net_params['mlp_batch_norm'],
                                     dropout=dropout, device=device,L=net_params['L'])
@@ -183,7 +186,6 @@ class nlim(nn.Module):
             
             #project input space onto pcs. 
             Forecast_inits =torch.cat((input[:,0,-1,:].to(torch.float64).to(self.device),input[:,1,-1,:].to(torch.float64).to(self.device)),1)
-
             proj_pcs = Forecast_inits@self.LIM_learner.eofs.T.to(torch.float64).to(self.device) #project the dataset onto the EOFS using a matrix mult.
             for_pcs_space = torch.mm(self.Gpow,proj_pcs.T)
             self.xfor = for_pcs_space.T@self.LIM_learner.eofs.to(torch.float64).to(self.device)
@@ -191,6 +193,10 @@ class nlim(nn.Module):
             if self.loss in ['gauss','laplace','cauchy','crps']:
                 out,var = self.MLP_layer(self.xfor.float())
                 return  out,var
+            if self.loss in ['evloss']:
+                out = self.pre_MLP_layer(self.xfor.float())
+                out = self.MLP_layer(out)
+                return  out
             else:
                 out = self.MLP_layer(self.xfor.float())
                 return  out

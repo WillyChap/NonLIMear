@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import math
 from evml.regression_losses import EvidentialMarginalLikelihood, EvidenceRegularizer, modified_mse as mmse_loss 
+from evml.regression_losses import evidential_regresssion_loss
 
 def get_optimizer(name, model, **kwargs):
     name = name.lower().strip()
@@ -70,14 +71,17 @@ class EvidentialLoss(nn.Module):
         
     def forward(self, input, target, scale=None, eps=1e-06, reduction='mean'):
         gamma, nu, alpha, beta = input
+        
+        
         loss = self.nll_loss(gamma, nu, alpha, beta, target)
         #print(self.nll_loss(gamma, nu, alpha, beta, target),'NLL loss') #nll loss
-        #loss += self.reg(gamma, nu, alpha, beta, target)
+        loss += self.reg(gamma, nu, alpha, beta, target)
         #print(self.reg(gamma, nu, alpha, beta, target),'reg loss') #nll loss
         loss += self.mmse_loss(gamma, nu, alpha, beta, target)
+    
         #print(self.mmse_loss(gamma, nu, alpha, beta, target),'mmse loss') 
-        #raise
-        return loss
+        
+        return loss #evidential_regresssion_loss(target,input,coeff=50)
     
 class Custom_CRPS(nn.Module):
     """

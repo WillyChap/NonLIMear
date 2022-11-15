@@ -239,18 +239,18 @@ if __name__ == '__main__':
                     #save the best model....
                     if epoch == 1:
                         epoch_best=1
-                        best_accuracy = val_stats['mae']
+                        best_accuracy = val_stats['evloss']
                         best_model_lim = copy.deepcopy(model)
                     else:
                         print(epoch)
-                        if best_accuracy < val_stats['mae']:
-                            scheduler.step(val_stats['mae'])
+                        if best_accuracy < val_stats['evloss']:
+                            scheduler.step(val_stats['evloss'])
                             continue
                         else:
                             print('new best')
                             epoch_best = epoch
-                            best_accuracy = val_stats['mae']
-                            scheduler.step(val_stats['mae'])
+                            best_accuracy = val_stats['evloss']
+                            scheduler.step(val_stats['evloss'])
                             best_model_lim = copy.deepcopy(model)
 
         ##create out directory if it doesn't exist

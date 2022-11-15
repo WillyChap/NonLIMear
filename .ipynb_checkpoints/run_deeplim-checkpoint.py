@@ -25,7 +25,7 @@ from tqdm import tqdm
 # from eval_gcn import ensemble_performance
 # !!!
 
-from deeplim.training import evaluate, train_epoch, train_epoch_LIM, get_dataloaders, evaluate_LIM, evaluate_LIM_prob
+from deeplim.training import evaluate, train_epoch, train_epoch_LIM, get_dataloaders, evaluate_LIM, evaluate_LIM_prob, evaluate_LIM_evloss
 from deeplim.GCN.GCN_model import GCN
 from deeplim.DLIM.deeplim_model import nlim
 from utilities.utils import set_gpu, set_seed
@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     base_dir = f'{args.out}/{args.horizon}lead/'
     adj = None
-    config_files = ['config_bias_crps','config_bias_crps_narrow']
+    config_files = ['config_bias_evloss']
     ID = str(time.strftime('%Hh%Mm%Ss_on_%b_%d_%Y'))
 
     for i, config_file in enumerate(config_files):
@@ -169,6 +169,10 @@ if __name__ == '__main__':
                         scales = torch.from_numpy(scales)
                         print('CRPS LOSS: ',CRPSloss(preder, truer, scales, eps=1e-06, reduction='mean'))
                         val_stats['crps'] = CRPSloss(preder, truer, scales, eps=1e-06, reduction='mean')
+                        
+                    elif params['loss'].lower().strip() in ['evloss']:
+                        ev_loss,mae_loss,truer,preder,scales = evaluate_LIM_evloss(valloader,model,device=device,return_preds=True)
+                        val_stats['evloss'] = ev_loss
                     
                     print('validation: ',val_stats)
                     print('train: ',train_stats)
@@ -213,7 +217,6 @@ if __name__ == '__main__':
                             scheduler.step(val_stats['rmse'])
                             best_model_lim = copy.deepcopy(model)
                             
-                            
                 elif params['loss'].lower().strip() in ['linex']:
                     #save the best model....
                     if epoch == 1:
@@ -230,6 +233,24 @@ if __name__ == '__main__':
                             epoch_best = epoch
                             best_accuracy = val_stats['linex']
                             scheduler.step(val_stats['linex'])
+                            best_model_lim = copy.deepcopy(model)
+                
+                elif params['loss'].lower().strip() in ['evloss']:
+                    #save the best model....
+                    if epoch == 1:
+                        epoch_best=1
+                        best_accuracy = val_stats['evloss']
+                        best_model_lim = copy.deepcopy(model)
+                    else:
+                        print(epoch)
+                        if best_accuracy < val_stats['evloss']:
+                            scheduler.step(val_stats['evloss'])
+                            continue
+                        else:
+                            print('new best')
+                            epoch_best = epoch
+                            best_accuracy = val_stats['evloss']
+                            scheduler.step(val_stats['evloss'])
                             best_model_lim = copy.deepcopy(model)
 
         ##create out directory if it doesn't exist

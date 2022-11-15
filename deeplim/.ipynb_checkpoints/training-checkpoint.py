@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from utilities.data_wrangling import load_cnn_data, to_dataloaders
 from utilities.utils import get_euclidean_adj
 from sklearn.metrics import mean_squared_error
+from utilities.optimization import EvidentialLoss
 
 
 def get_dataloaders(params, net_params):
@@ -91,6 +92,11 @@ def train_epoch_LIM(dataloader, model, criterion, optims, device, epoch, nth_ste
         if model.loss in ['gauss','laplace','cauchy','crps']:
             preds,var = model(X)
             loss = criterion(preds,Y,var,reduction='mean')
+            loss.backward()
+        elif model.loss in ['evloss']:
+            preds = model(X)
+            #print(preds, Y)
+            loss = criterion(preds,Y)
             loss.backward()
         else: 
             preds = model(X)
@@ -173,6 +179,137 @@ def evaluate_LIM(dataloader, model, device, return_preds=False):
     else:
         return total_loss_l2 / i, oni_stats
     
+    
+def evaluate_LIM_evloss(dataloader, model, device, return_preds=False):
+    model.eval()
+    evloss = EvidentialLoss()
+    with torch.no_grad():
+        # Validate in batch mode
+        mae_loss = []
+        valid_loss = []
+        
+        preds, truth = [], []
+        unc = []
+        for k, (x, y) in enumerate(dataloader):
+            labels = y.to(device) 
+            pred = model(x.to(device))
+            loss = evloss(pred, labels)
+            gamma, nu, alpha, beta = pred
+            mae = torch.nn.L1Loss()(labels, gamma)
+            valid_loss.append(loss.item())
+            mae_loss.append(mae.item())
+
+            preds.append(gamma[:, 0].cpu().numpy())
+            truth.append(labels.cpu().numpy())
+            
+            var_a = beta / (alpha - 1)
+            var_e = beta / (nu * (alpha - 1))
+            u = var_a + var_e
+            unc.append(u[:, 0].cpu().numpy())
+                
+    ev_loss = np.mean(valid_loss)
+    mae_loss = np.mean(mae_loss)
+    
+    if return_preds:
+        return ev_loss, mae_loss, np.hstack(truth), np.hstack(preds), np.hstack(unc)
+        
+    else:
+        return ev_loss, mae_loss
+    
+def evaluate_LIM_evloss_3out(dataloader, model, device, return_preds=False):
+    model.eval()
+    evloss = EvidentialLoss()
+    with torch.no_grad():
+        # Validate in batch mode
+        mae_loss = []
+        valid_loss = []
+        
+        preds, truth = [], []
+        unc = []
+        var_a_all = []
+        var_e_all = []
+        
+        nu_all = []
+        alpha_all =[]
+        beta_all =[]
+        
+        for k, (x, y) in enumerate(dataloader):
+            labels = y.to(device) 
+            pred = model(x.to(device))
+            loss = evloss(pred, labels)
+            gamma, nu, alpha, beta = pred
+            mae = torch.nn.L1Loss()(labels, gamma)
+            valid_loss.append(loss.item())
+            mae_loss.append(mae.item())
+
+            preds.append(gamma[:, 0].cpu().numpy())
+            truth.append(labels.cpu().numpy())
+            
+            var_a = beta / (alpha - 1)
+            var_e = beta / (nu * (alpha - 1))
+            u = var_a + var_e
+            unc.append(u[:, 0].cpu().numpy())
+            
+            var_a_all.append(var_a[:, 0].cpu().numpy())
+            var_e_all.append(var_e[:, 0].cpu().numpy())
+                
+    ev_loss = np.mean(valid_loss)
+    mae_loss = np.mean(mae_loss)
+    
+    if return_preds:
+        return ev_loss, mae_loss, np.hstack(truth), np.hstack(preds), np.hstack(var_a_all), np.hstack(var_e_all)
+        
+    else:
+        return ev_loss, mae_loss
+    
+    
+def evaluate_LIM_evloss_raw(dataloader, model, device, return_preds=False):
+    model.eval()
+    evloss = EvidentialLoss()
+    with torch.no_grad():
+        # Validate in batch mode
+        mae_loss = []
+        valid_loss = []
+        
+        preds, truth = [], []
+        unc = []
+        var_a_all = []
+        var_e_all = []
+        
+        nu_all = []
+        alpha_all =[]
+        beta_all =[]
+        
+        for k, (x, y) in enumerate(dataloader):
+            labels = y.to(device) 
+            pred = model(x.to(device))
+            loss = evloss(pred, labels)
+            gamma, nu, alpha, beta = pred
+            mae = torch.nn.L1Loss()(labels, gamma)
+            valid_loss.append(loss.item())
+            mae_loss.append(mae.item())
+
+            preds.append(gamma[:, 0].cpu().numpy())
+            truth.append(labels.cpu().numpy())
+            
+            var_a = beta / (alpha - 1)
+            var_e = beta / (nu * (alpha - 1))
+            u = var_a + var_e
+            unc.append(u[:, 0].cpu().numpy())
+            
+            var_a_all.append(var_a[:, 0].cpu().numpy())
+            var_e_all.append(var_e[:, 0].cpu().numpy())
+            nu_all.append(nu[:, 0].cpu().numpy())
+            beta_all.append(beta[:, 0].cpu().numpy())
+            alpha_all.append(alpha[:, 0].cpu().numpy())
+                
+    ev_loss = np.mean(valid_loss)
+    mae_loss = np.mean(mae_loss)
+    
+    if return_preds:
+        return ev_loss, mae_loss, np.hstack(truth), np.hstack(preds), np.hstack(nu_all), np.hstack(alpha_all), np.hstack(beta_all) 
+    else:
+        return ev_loss, mae_loss
     
 def evaluate_LIM_prob(dataloader, model, device, return_preds=False):
     model.eval()
